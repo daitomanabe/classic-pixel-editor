@@ -283,6 +283,10 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         refresh()
     }
 
+    var activeToolInteractionKind: ToolInteractionKind {
+        activeTool.interactionKind
+    }
+
     func draw(at x: Int, y: Int) {
         toolController.foreground = PixelColor(nsColor: foregroundWell.color)
         do {
@@ -305,6 +309,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func finishSelection(start: NSPoint, end: NSPoint) {
+        guard activeTool.interactionKind == .dragSelection else { return }
         let s = canvasView.pixelCoordinate(from: start)
         let e = canvasView.pixelCoordinate(from: end)
         guard let s, let e else { return }
@@ -320,13 +325,19 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         canvasView.needsDisplay = true
         canvasView.frame = NSRect(x: 0, y: 0, width: CGFloat(model.buffer.width) * canvasView.zoom, height: CGFloat(model.buffer.height) * canvasView.zoom)
         window?.title = model.title
-        let colorText: String
+        let cursorText: String
         if let cursorX, let cursorY, let color = try? model.buffer.pixel(x: cursorX, y: cursorY) {
-            colorText = "  rgba(\(color.r), \(color.g), \(color.b), \(color.a))"
+            cursorText = "  cursor \(cursorX),\(cursorY)  rgba(\(color.r), \(color.g), \(color.b), \(color.a))"
         } else {
-            colorText = ""
+            cursorText = "  cursor -, -"
         }
-        statusLabel.stringValue = "\(model.buffer.width)x\(model.buffer.height)  \(Int(canvasView.zoom * 100))%\(colorText)"
+        let selectionText: String
+        if let selection = model.selection, selection.selectedCount > 0 {
+            selectionText = "  selected \(selection.selectedCount) px"
+        } else {
+            selectionText = ""
+        }
+        statusLabel.stringValue = "tool \(toolTitle(activeTool))\(cursorText)  zoom \(Int(canvasView.zoom * 100))%  size \(model.buffer.width)x\(model.buffer.height)\(selectionText)"
     }
 
     func saveAs() {
@@ -458,6 +469,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         if let raw = sender.identifier?.rawValue, let tool = EditorTool(rawValue: raw) {
             activeTool = tool
             updateToolButtons()
+            refresh()
         }
     }
 
@@ -489,7 +501,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 final class CanvasView: NSView {
     weak var controller: EditorWindowController?
     var zoom: CGFloat = 1.0
-    private var selectionStart: NSPoint?
+    private var dragStart: NSPoint?
 
     override var isFlipped: Bool { true }
 
@@ -506,24 +518,37 @@ final class CanvasView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        selectionStart = convert(event.locationInWindow, from: nil)
-        if let point = pixelCoordinate(from: selectionStart!) {
-            controller?.draw(at: point.x, y: point.y)
+        let location = convert(event.locationInWindow, from: nil)
+        dragStart = location
+        guard let controller, let point = pixelCoordinate(from: location) else { return }
+        switch controller.activeToolInteractionKind {
+        case .continuousDrawing, .clickEditing, .clickSelection:
+            controller.draw(at: point.x, y: point.y)
+        case .dragSelection:
+            controller.refresh(cursorX: point.x, cursorY: point.y)
         }
     }
 
     override func mouseDragged(with event: NSEvent) {
         let location = convert(event.locationInWindow, from: nil)
-        if let point = pixelCoordinate(from: location) {
-            controller?.draw(at: point.x, y: point.y)
+        guard let controller, let point = pixelCoordinate(from: location) else { return }
+        switch controller.activeToolInteractionKind {
+        case .continuousDrawing:
+            controller.draw(at: point.x, y: point.y)
+        case .dragSelection, .clickEditing, .clickSelection:
+            controller.refresh(cursorX: point.x, cursorY: point.y)
         }
     }
 
     override func mouseUp(with event: NSEvent) {
-        guard let start = selectionStart else { return }
+        guard let controller, let start = dragStart else { return }
         let end = convert(event.locationInWindow, from: nil)
-        controller?.finishSelection(start: start, end: end)
-        selectionStart = nil
+        if controller.activeToolInteractionKind == .dragSelection {
+            controller.finishSelection(start: start, end: end)
+        } else if let point = pixelCoordinate(from: end) {
+            controller.refresh(cursorX: point.x, cursorY: point.y)
+        }
+        dragStart = nil
     }
 
     override func mouseMoved(with event: NSEvent) {

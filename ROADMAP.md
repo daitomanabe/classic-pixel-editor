@@ -10,9 +10,10 @@ Classic Pixel Editor is a clean-room macOS raster editor. This roadmap keeps the
 
 ## Milestone 1: UI/UX Hardening
 
+- Keep the canvas event split clear: drawing tools draw, click tools act once, and selection tools select without also painting.
 - Improve canvas drag behavior so drawing strokes are grouped as one undoable command.
 - Add clearer active-tool feedback, keyboard shortcuts, cursor previews, and selection outlines.
-- Add practical document status details: modified marker, file path, color mode, and current tool.
+- Continue expanding document status details: modified marker, file path, and color mode.
 - Add lightweight smoke checks for launch, new document, simple edit, save, and reopen.
 
 ## Milestone 2: XCTest Coverage And Smoke Tests

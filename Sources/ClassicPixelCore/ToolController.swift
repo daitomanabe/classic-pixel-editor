@@ -12,6 +12,37 @@ public enum EditorTool: String, CaseIterable, Sendable {
     case magicWand
 }
 
+public enum ToolInteractionKind: Equatable, Sendable {
+    case continuousDrawing
+    case clickEditing
+    case dragSelection
+    case clickSelection
+}
+
+extension EditorTool {
+    public var interactionKind: ToolInteractionKind {
+        switch self {
+        case .pencil, .brush, .eraser:
+            return .continuousDrawing
+        case .paintBucket, .eyedropper:
+            return .clickEditing
+        case .rectangularSelection, .ellipticalSelection, .lassoSelection:
+            return .dragSelection
+        case .magicWand:
+            return .clickSelection
+        }
+    }
+
+    public var createsSelection: Bool {
+        switch interactionKind {
+        case .dragSelection, .clickSelection:
+            return true
+        case .continuousDrawing, .clickEditing:
+            return false
+        }
+    }
+}
+
 public struct ToolController: Sendable {
     public var foreground = PixelColor.black
     public var background = PixelColor.white

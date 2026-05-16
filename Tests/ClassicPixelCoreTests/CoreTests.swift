@@ -46,6 +46,37 @@ final class CoreTests: XCTestCase {
         XCTAssertFalse(polygon.isSelected(x: 4, y: 4))
     }
 
+    func testToolInteractionKinds() throws {
+        XCTAssertEqual(EditorTool.pencil.interactionKind, .continuousDrawing)
+        XCTAssertEqual(EditorTool.brush.interactionKind, .continuousDrawing)
+        XCTAssertEqual(EditorTool.eraser.interactionKind, .continuousDrawing)
+        XCTAssertEqual(EditorTool.paintBucket.interactionKind, .clickEditing)
+        XCTAssertEqual(EditorTool.eyedropper.interactionKind, .clickEditing)
+        XCTAssertEqual(EditorTool.rectangularSelection.interactionKind, .dragSelection)
+        XCTAssertEqual(EditorTool.ellipticalSelection.interactionKind, .dragSelection)
+        XCTAssertEqual(EditorTool.lassoSelection.interactionKind, .dragSelection)
+        XCTAssertEqual(EditorTool.magicWand.interactionKind, .clickSelection)
+
+        XCTAssertFalse(EditorTool.pencil.createsSelection)
+        XCTAssertFalse(EditorTool.paintBucket.createsSelection)
+        XCTAssertTrue(EditorTool.rectangularSelection.createsSelection)
+        XCTAssertTrue(EditorTool.magicWand.createsSelection)
+    }
+
+    func testToolControllerSelectionOnlyForSelectionTools() throws {
+        let buffer = try PixelBuffer(width: 4, height: 4, fill: .white)
+        let controller = ToolController()
+
+        XCTAssertNil(try controller.selection(on: buffer, tool: .pencil, startX: 0, startY: 0, endX: 2, endY: 2))
+        XCTAssertNil(try controller.selection(on: buffer, tool: .paintBucket, startX: 0, startY: 0, endX: 2, endY: 2))
+
+        let rectangle = try XCTUnwrap(controller.selection(on: buffer, tool: .rectangularSelection, startX: 0, startY: 0, endX: 1, endY: 1))
+        XCTAssertEqual(rectangle.selectedCount, 4)
+
+        let wand = try XCTUnwrap(controller.selection(on: buffer, tool: .magicWand, startX: 0, startY: 0, endX: 0, endY: 0))
+        XCTAssertEqual(wand.selectedCount, 16)
+    }
+
     func testFloodFillTransformsAdjustmentsAndFilters() throws {
         var floodSource = try PixelBuffer(width: 3, height: 3, fill: .white)
         try floodSource.setPixel(x: 1, y: 0, color: .black)
