@@ -9,12 +9,28 @@ final class ClassicPixelEditorApp: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         NSApp.mainMenu = makeMainMenu()
-        newDocument(nil)
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.controllers.isEmpty else { return }
+            self.newDocument(nil)
+        }
         NSApp.activate(ignoringOtherApps: true)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
+    }
+
+    func application(_ sender: NSApplication, openFile filename: String) -> Bool {
+        openImageURLs([URL(fileURLWithPath: filename)])
+    }
+
+    func application(_ sender: NSApplication, openFiles filenames: [String]) {
+        let didOpen = openImageURLs(filenames.map { URL(fileURLWithPath: $0) })
+        sender.reply(toOpenOrPrint: didOpen ? .success : .failure)
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        _ = openImageURLs(urls)
     }
 
     @objc func newDocument(_ sender: Any?) {
@@ -39,14 +55,7 @@ final class ClassicPixelEditorApp: NSObject, NSApplicationDelegate {
         panel.allowedContentTypes = [.png, .jpeg, .tiff, .bmp]
         panel.allowsMultipleSelection = true
         if panel.runModal() == .OK {
-            for url in panel.urls {
-                do {
-                    let buffer = try ImageIOBridge.load(from: url)
-                    show(model: DocumentModel(title: url.lastPathComponent, buffer: buffer), fileURL: url)
-                } catch {
-                    showError(error)
-                }
-            }
+            _ = openImageURLs(panel.urls)
         }
     }
 
@@ -118,6 +127,21 @@ final class ClassicPixelEditorApp: NSObject, NSApplicationDelegate {
             self?.controllers.removeAll { $0 === controller }
         }
         controller.showWindow(nil)
+    }
+
+    @discardableResult
+    private func openImageURLs(_ urls: [URL]) -> Bool {
+        var openedAny = false
+        for url in urls {
+            do {
+                let buffer = try ImageIOBridge.load(from: url)
+                show(model: DocumentModel(title: url.lastPathComponent, buffer: buffer), fileURL: url)
+                openedAny = true
+            } catch {
+                showError(error)
+            }
+        }
+        return openedAny
     }
 
     private func activeController() -> EditorWindowController? {

@@ -25,8 +25,9 @@ Classic Pixel Editor is a clean-room macOS raster editor. This roadmap keeps the
 
 ## Milestone 3: Document-Based Packaging
 
-- Move from a SwiftPM-launched AppKit executable to a proper document-based macOS app bundle.
-- Add bundle metadata, original app icon, signing/notarization notes, and export packaging.
+- Keep the local SwiftPM-to-app-bundle packaging script working for development builds.
+- Move from the current app-bundle wrapper to a proper document-based macOS app architecture.
+- Add an original app icon, signing/notarization notes, and release packaging.
 - Preserve SwiftPM core builds for CI and library reuse.
 
 ## Milestone 4: More Tools And Filters

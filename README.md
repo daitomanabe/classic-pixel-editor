@@ -37,7 +37,16 @@ scripts/cleanroom_guard.sh .
 swift run ClassicPixelEditor
 ```
 
-SwiftPM launches this as a native AppKit executable rather than a bundled `.app`. A future release can add a signing and app-bundle packaging step.
+SwiftPM launches this as a native AppKit executable.
+
+## Package App
+
+```bash
+scripts/package_app.sh
+open "dist/Classic Pixel Editor.app"
+```
+
+The packaging script creates a local app bundle with original metadata and document type declarations for common raster images. The generated `dist/` directory is ignored by git.
 
 ## Clean-Room Notice
 
