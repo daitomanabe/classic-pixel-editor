@@ -332,13 +332,20 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
-    func finishSelection(start: NSPoint, end: NSPoint) {
+    func finishSelection(start: NSPoint, end: NSPoint, lassoCanvasPoints: [NSPoint] = []) {
         guard activeTool.interactionKind == .dragSelection else { return }
         let s = canvasView.pixelCoordinate(from: start)
         let e = canvasView.pixelCoordinate(from: end)
         guard let s, let e else { return }
         do {
-            model.selection = try toolController.selection(on: model.buffer, tool: activeTool, startX: s.x, startY: s.y, endX: e.x, endY: e.y)
+            if activeTool == .lassoSelection {
+                let lassoPoints = pixelPath(from: lassoCanvasPoints)
+                model.selection = lassoPoints.count >= 3
+                    ? try toolController.selection(on: model.buffer, tool: activeTool, startX: s.x, startY: s.y, endX: e.x, endY: e.y, lassoPoints: lassoPoints)
+                    : nil
+            } else {
+                model.selection = try toolController.selection(on: model.buffer, tool: activeTool, startX: s.x, startY: s.y, endX: e.x, endY: e.y)
+            }
             refresh(cursorX: e.x, cursorY: e.y)
         } catch {
             NSAlert(error: error).runModal()
@@ -440,6 +447,18 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         return output
     }
 
+    private func pixelPath(from canvasPoints: [NSPoint]) -> [(x: Int, y: Int)] {
+        var path: [(x: Int, y: Int)] = []
+        for canvasPoint in canvasPoints {
+            guard let point = canvasView.pixelCoordinate(from: canvasPoint) else { continue }
+            if let last = path.last, last.x == point.x, last.y == point.y {
+                continue
+            }
+            path.append(point)
+        }
+        return path
+    }
+
     private func configureContent() {
         guard let window else { return }
         let sidebar = NSStackView()
@@ -448,7 +467,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         sidebar.spacing = 8
         sidebar.edgeInsets = NSEdgeInsets(top: 12, left: 12, bottom: 12, right: 12)
 
-        for tool in [EditorTool.pencil, .brush, .eraser, .paintBucket, .eyedropper, .rectangularSelection, .ellipticalSelection, .magicWand] {
+        for tool in [EditorTool.pencil, .brush, .eraser, .paintBucket, .eyedropper, .rectangularSelection, .ellipticalSelection, .lassoSelection, .magicWand] {
             let button = NSButton(title: toolTitle(tool), target: self, action: #selector(selectTool(_:)))
             button.identifier = NSUserInterfaceItemIdentifier(tool.rawValue)
             button.setButtonType(.toggle)
@@ -516,6 +535,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         case .paintBucket: return "Paint Bucket"
         case .rectangularSelection: return "Rectangle Select"
         case .ellipticalSelection: return "Ellipse Select"
+        case .lassoSelection: return "Lasso Select"
         case .magicWand: return "Magic Wand"
         default: return tool.rawValue.capitalized
         }
@@ -526,6 +546,7 @@ final class CanvasView: NSView {
     weak var controller: EditorWindowController?
     var zoom: CGFloat = 1.0
     private var dragStart: NSPoint?
+    private var dragPoints: [NSPoint] = []
 
     override var isFlipped: Bool { true }
 
@@ -544,6 +565,7 @@ final class CanvasView: NSView {
     override func mouseDown(with event: NSEvent) {
         let location = convert(event.locationInWindow, from: nil)
         dragStart = location
+        dragPoints = [location]
         guard let controller, let point = pixelCoordinate(from: location) else { return }
         switch controller.activeToolInteractionKind {
         case .continuousDrawing, .clickEditing, .clickSelection:
@@ -560,6 +582,9 @@ final class CanvasView: NSView {
         case .continuousDrawing:
             controller.draw(at: point.x, y: point.y)
         case .dragSelection, .clickEditing, .clickSelection:
+            if controller.activeToolInteractionKind == .dragSelection {
+                dragPoints.append(location)
+            }
             controller.refresh(cursorX: point.x, cursorY: point.y)
         }
     }
@@ -567,12 +592,14 @@ final class CanvasView: NSView {
     override func mouseUp(with event: NSEvent) {
         guard let controller, let start = dragStart else { return }
         let end = convert(event.locationInWindow, from: nil)
+        dragPoints.append(end)
         if controller.activeToolInteractionKind == .dragSelection {
-            controller.finishSelection(start: start, end: end)
+            controller.finishSelection(start: start, end: end, lassoCanvasPoints: dragPoints)
         } else if let point = pixelCoordinate(from: end) {
             controller.refresh(cursorX: point.x, cursorY: point.y)
         }
         dragStart = nil
+        dragPoints = []
     }
 
     override func mouseMoved(with event: NSEvent) {

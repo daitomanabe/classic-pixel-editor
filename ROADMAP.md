@@ -33,7 +33,7 @@ Classic Pixel Editor is a clean-room macOS raster editor. This roadmap keeps the
 ## Milestone 4: More Tools And Filters
 
 - Add stroke interpolation, brush shapes, brush opacity, eraser opacity, and better paint bucket tolerance controls.
-- Add freehand lasso completion, selection move/copy behavior, crop UI, and resize dialogs.
+- Refine lasso completion, selection move/copy behavior, crop UI, and resize dialogs.
 - Expand filters and adjustments with tested, generic algorithms: Gaussian blur, unsharp mask, hue/saturation, noise, and histogram-based levels UI.
 
 ## Milestone 5: Releases

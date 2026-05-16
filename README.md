@@ -11,7 +11,7 @@ This project is original work. It is not affiliated with, endorsed by, or compat
 - Multi-window editor shell, canvas viewport, checkerboard background, zoom, status readout, and basic toolbar.
 - PNG/JPEG/TIFF/BMP loading through ImageIO where supported by the platform.
 - PNG/TIFF export.
-- Pencil, brush, eraser, paint bucket, eyedropper, rectangle/ellipse selection, and magic-wand-style contiguous selection.
+- Pencil, brush, eraser, paint bucket, eyedropper, rectangle/ellipse/lasso selection, and magic-wand-style contiguous selection.
 - Invert, threshold, brightness, levels API, resize/crop/rotate/flip transforms, blur, sharpen, edge detect, and median filter.
 - Full-buffer undo/redo for destructive operations.
 - Clipboard copy/paste using platform pasteboard image support.

@@ -46,6 +46,17 @@ final class CoreTests: XCTestCase {
         XCTAssertFalse(polygon.isSelected(x: 4, y: 4))
     }
 
+    func testLassoPolygonMaskGeneration() throws {
+        let points = [(x: 1, y: 1), (x: 4, y: 1), (x: 4, y: 4), (x: 1, y: 4)]
+        let mask = try SelectionMask.polygon(width: 6, height: 6, points: points)
+
+        XCTAssertEqual(mask.selectedCount, 9)
+        XCTAssertTrue(mask.isSelected(x: 1, y: 1))
+        XCTAssertTrue(mask.isSelected(x: 3, y: 3))
+        XCTAssertFalse(mask.isSelected(x: 0, y: 0))
+        XCTAssertFalse(mask.isSelected(x: 4, y: 4))
+    }
+
     func testToolInteractionKinds() throws {
         XCTAssertEqual(EditorTool.pencil.interactionKind, .continuousDrawing)
         XCTAssertEqual(EditorTool.brush.interactionKind, .continuousDrawing)
@@ -72,6 +83,18 @@ final class CoreTests: XCTestCase {
 
         let rectangle = try XCTUnwrap(controller.selection(on: buffer, tool: .rectangularSelection, startX: 0, startY: 0, endX: 1, endY: 1))
         XCTAssertEqual(rectangle.selectedCount, 4)
+
+        let lasso = try XCTUnwrap(controller.selection(
+            on: buffer,
+            tool: .lassoSelection,
+            startX: 1,
+            startY: 1,
+            endX: 3,
+            endY: 3,
+            lassoPoints: [(x: 1, y: 1), (x: 3, y: 1), (x: 3, y: 3), (x: 1, y: 3)]
+        ))
+        XCTAssertEqual(lasso.selectedCount, 4)
+        XCTAssertTrue(lasso.isSelected(x: 1, y: 1))
 
         let wand = try XCTUnwrap(controller.selection(on: buffer, tool: .magicWand, startX: 0, startY: 0, endX: 0, endY: 0))
         XCTAssertEqual(wand.selectedCount, 16)
