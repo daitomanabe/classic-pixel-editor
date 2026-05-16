@@ -132,10 +132,17 @@ final class CoreTests: XCTestCase {
         XCTAssertEqual(ImageOperations.threshold(gradient, cutoff: 128).pixels.map(\.r), [0, 0, 255])
         XCTAssertGreaterThan(ImageOperations.brightnessContrast(gradient, brightness: 20, contrast: 0).pixels[1].r, 120)
         XCTAssertEqual(ImageOperations.levels(gradient, blackPoint: 0, gamma: 1.0, whitePoint: 255).pixels.map(\.r), [0, 120, 255])
+        XCTAssertEqual(ImageOperations.desaturated(try PixelBuffer(width: 1, height: 1, pixels: [
+            PixelColor(r: 100, g: 150, b: 200, a: 77)
+        ])).pixels, [PixelColor(r: 140, g: 140, b: 140, a: 77)])
         XCTAssertEqual(try ImageOperations.blur3x3(gradient).pixels.count, 3)
         XCTAssertEqual(try ImageOperations.sharpen3x3(gradient).pixels.count, 3)
         XCTAssertEqual(try ImageOperations.edgeDetect3x3(gradient).pixels.count, 3)
         XCTAssertEqual(try ImageOperations.median3x3(gradient).pixels.count, 3)
+
+        let flat = try PixelBuffer(width: 3, height: 3, pixels: Array(repeating: PixelColor(r: 100, g: 80, b: 60, a: 42), count: 9))
+        let embossed = try ImageOperations.emboss3x3(flat)
+        XCTAssertEqual(try embossed.pixel(x: 1, y: 1), PixelColor(r: 128, g: 128, b: 128, a: 42))
     }
 
     func testPaintBucketResizeAndUndo() throws {

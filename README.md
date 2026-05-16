@@ -12,7 +12,7 @@ This project is original work. It is not affiliated with, endorsed by, or compat
 - PNG/JPEG/TIFF/BMP loading through ImageIO where supported by the platform.
 - PNG/TIFF export.
 - Pencil, brush, eraser, paint bucket, eyedropper, rectangle/ellipse/lasso selection, and magic-wand-style contiguous selection.
-- Invert, threshold, brightness, levels API, resize/crop/rotate/flip transforms, blur, sharpen, edge detect, and median filter.
+- Invert, threshold, brightness, desaturate, levels API, resize/crop/rotate/flip transforms, blur, sharpen, emboss, edge detect, and median filter.
 - Full-buffer undo/redo for destructive operations.
 - Clipboard copy/paste using platform pasteboard image support.
 

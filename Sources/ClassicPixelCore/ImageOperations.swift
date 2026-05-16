@@ -32,6 +32,17 @@ public enum ImageOperations {
         }
     }
 
+    public static func desaturated(_ source: PixelBuffer, amount: Double = 1.0, selection: SelectionMask? = nil) -> PixelBuffer {
+        let mix = max(0.0, min(1.0, amount))
+        return selectedMap(source, selection: selection) { color in
+            let luminance = Double(color.luminance)
+            func desaturate(_ channel: UInt8) -> UInt8 {
+                .clamped(Int((Double(channel) * (1.0 - mix) + luminance * mix).rounded()))
+            }
+            return PixelColor(r: desaturate(color.r), g: desaturate(color.g), b: desaturate(color.b), a: color.a)
+        }
+    }
+
     public static func levels(_ source: PixelBuffer, blackPoint: UInt8, gamma: Double = 1.0, whitePoint: UInt8, selection: SelectionMask? = nil) -> PixelBuffer {
         let low = min(blackPoint, whitePoint)
         let high = max(blackPoint, whitePoint)
@@ -132,6 +143,14 @@ public enum ImageOperations {
         ])
     }
 
+    public static func emboss3x3(_ source: PixelBuffer) throws -> PixelBuffer {
+        try convolved(source, kernel: [
+            [-1, -1, 0],
+            [-1, 0, 1],
+            [0, 1, 1]
+        ], bias: 128.0)
+    }
+
     public static func median3x3(_ source: PixelBuffer) throws -> PixelBuffer {
         var output = try PixelBuffer(width: source.width, height: source.height, fill: .clear)
         for y in 0 ..< source.height {
@@ -205,7 +224,7 @@ public enum ImageOperations {
         return output
     }
 
-    private static func convolved(_ source: PixelBuffer, kernel: [[Double]]) throws -> PixelBuffer {
+    private static func convolved(_ source: PixelBuffer, kernel: [[Double]], bias: Double = 0.0) throws -> PixelBuffer {
         let radiusY = kernel.count / 2
         let radiusX = (kernel.first?.count ?? 1) / 2
         var output = try PixelBuffer(width: source.width, height: source.height, fill: .clear)
@@ -227,9 +246,9 @@ public enum ImageOperations {
                 }
                 let original = source.pixels[y * source.width + x]
                 try output.setPixel(x: x, y: y, color: PixelColor(
-                    r: .clamped(Int(r.rounded())),
-                    g: .clamped(Int(g.rounded())),
-                    b: .clamped(Int(b.rounded())),
+                    r: .clamped(Int((r + bias).rounded())),
+                    g: .clamped(Int((g + bias).rounded())),
+                    b: .clamped(Int((b + bias).rounded())),
                     a: original.a
                 ))
             }

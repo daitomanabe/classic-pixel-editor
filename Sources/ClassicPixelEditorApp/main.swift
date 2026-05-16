@@ -91,6 +91,10 @@ final class ClassicPixelEditorApp: NSObject, NSApplicationDelegate {
         activeController()?.applyEdit(name: "Brightness") { ImageOperations.brightnessContrast($0, brightness: 24, contrast: 0, selection: self.activeController()?.model.selection) }
     }
 
+    @objc func desaturate(_ sender: Any?) {
+        activeController()?.applyEdit(name: "Desaturate") { ImageOperations.desaturated($0, selection: self.activeController()?.model.selection) }
+    }
+
     @objc func blur(_ sender: Any?) {
         activeController()?.applyEdit(name: "Blur") { try ImageOperations.blur3x3($0) }
     }
@@ -101,6 +105,10 @@ final class ClassicPixelEditorApp: NSObject, NSApplicationDelegate {
 
     @objc func edgeDetect(_ sender: Any?) {
         activeController()?.applyEdit(name: "Edge Detect") { try ImageOperations.edgeDetect3x3($0) }
+    }
+
+    @objc func emboss(_ sender: Any?) {
+        activeController()?.applyEdit(name: "Emboss") { try ImageOperations.emboss3x3($0) }
     }
 
     @objc func rotate90(_ sender: Any?) {
@@ -185,6 +193,7 @@ final class ClassicPixelEditorApp: NSObject, NSApplicationDelegate {
         imageMenu.addItem(withTitle: "Invert", action: #selector(invert(_:)), keyEquivalent: "i")
         imageMenu.addItem(withTitle: "Threshold", action: #selector(threshold(_:)), keyEquivalent: "")
         imageMenu.addItem(withTitle: "Brighten", action: #selector(brighten(_:)), keyEquivalent: "")
+        imageMenu.addItem(withTitle: "Desaturate", action: #selector(desaturate(_:)), keyEquivalent: "")
         imageMenu.addItem(.separator())
         imageMenu.addItem(withTitle: "Rotate 90", action: #selector(rotate90(_:)), keyEquivalent: "r")
         imageMenu.addItem(withTitle: "Rotate 180", action: #selector(rotate180(_:)), keyEquivalent: "")
@@ -198,6 +207,7 @@ final class ClassicPixelEditorApp: NSObject, NSApplicationDelegate {
         filterMenu.addItem(withTitle: "Blur", action: #selector(blur(_:)), keyEquivalent: "b")
         filterMenu.addItem(withTitle: "Sharpen", action: #selector(sharpen(_:)), keyEquivalent: "")
         filterMenu.addItem(withTitle: "Edge Detect", action: #selector(edgeDetect(_:)), keyEquivalent: "")
+        filterMenu.addItem(withTitle: "Emboss", action: #selector(emboss(_:)), keyEquivalent: "")
         filterItem.submenu = filterMenu
         return menu
     }
