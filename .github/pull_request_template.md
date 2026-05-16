@@ -2,7 +2,7 @@
 
 ## Test Commands
 
-- [ ] `swift run ClassicPixelCoreTestRunner`
+- [ ] `swift test`
 - [ ] `scripts/cleanroom_guard.sh .`
 
 ## Clean-Room Checklist

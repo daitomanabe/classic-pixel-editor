@@ -14,6 +14,6 @@ jobs:
       - name: Build
         run: swift build
       - name: Test
-        run: swift run ClassicPixelCoreTestRunner
+        run: swift test
       - name: Clean-room guard
         run: scripts/cleanroom_guard.sh .

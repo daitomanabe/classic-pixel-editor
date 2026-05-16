@@ -25,9 +25,11 @@ swift build
 ## Test
 
 ```bash
-swift run ClassicPixelCoreTestRunner
+swift test
 scripts/cleanroom_guard.sh .
 ```
+
+`ClassicPixelCoreTestRunner` remains available as a fallback smoke runner for minimal toolchains, but CI uses the XCTest target.
 
 ## Run
 

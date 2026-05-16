@@ -1,0 +1,112 @@
+import XCTest
+@testable import ClassicPixelCore
+
+final class CoreTests: XCTestCase {
+    func testPixelBufferBoundsAndRows() throws {
+        var buffer = try PixelBuffer(width: 2, height: 2, fill: .white)
+        try buffer.setPixel(x: 1, y: 1, color: .black)
+
+        XCTAssertEqual(try buffer.pixel(x: 1, y: 1), .black)
+        XCTAssertThrowsError(try buffer.pixel(x: 2, y: 0)) { error in
+            guard case PixelBufferError.outOfBounds(x: 2, y: 0) = error else {
+                XCTFail("Expected out-of-bounds error, got \(error)")
+                return
+            }
+        }
+        XCTAssertEqual(Array(try buffer.row(y: 1)), [PixelColor.white, PixelColor.black])
+    }
+
+    func testColorConversion() {
+        let color = PixelColor(r: 10, g: 20, b: 250, a: 99)
+        let gray = color.converted(to: .grayscale)
+
+        XCTAssertEqual(gray.r, gray.g)
+        XCTAssertEqual(gray.g, gray.b)
+        XCTAssertEqual(gray.a, 99)
+
+        let palette = [PixelColor.black, PixelColor(r: 8, g: 22, b: 245)]
+        XCTAssertEqual(color.converted(to: .indexedPalette, palette: palette).b, 245)
+        XCTAssertEqual(color.converted(to: .rgb).a, 255)
+    }
+
+    func testSelectionMasks() throws {
+        let rectangle = try SelectionMask.rectangle(width: 4, height: 4, x: -1, y: 1, rectWidth: 3, rectHeight: 3)
+        XCTAssertTrue(rectangle.isSelected(x: 0, y: 1))
+        XCTAssertTrue(rectangle.isSelected(x: 1, y: 3))
+        XCTAssertFalse(rectangle.isSelected(x: 2, y: 1))
+        XCTAssertEqual(rectangle.selectedCount, 6)
+
+        let ellipse = try SelectionMask.ellipse(width: 5, height: 5, x: 0, y: 0, rectWidth: 5, rectHeight: 5)
+        XCTAssertTrue(ellipse.isSelected(x: 2, y: 2))
+        XCTAssertFalse(ellipse.isSelected(x: 0, y: 0))
+
+        let polygon = try SelectionMask.polygon(width: 5, height: 5, points: [(x: 1, y: 1), (x: 4, y: 1), (x: 1, y: 4)])
+        XCTAssertTrue(polygon.isSelected(x: 1, y: 1))
+        XCTAssertTrue(polygon.isSelected(x: 2, y: 1))
+        XCTAssertFalse(polygon.isSelected(x: 4, y: 4))
+    }
+
+    func testFloodFillTransformsAdjustmentsAndFilters() throws {
+        var floodSource = try PixelBuffer(width: 3, height: 3, fill: .white)
+        try floodSource.setPixel(x: 1, y: 0, color: .black)
+        try floodSource.setPixel(x: 1, y: 1, color: .black)
+        try floodSource.setPixel(x: 1, y: 2, color: .black)
+
+        let selection = try ImageOperations.floodSelection(in: floodSource, startX: 0, startY: 1, tolerance: 0)
+        XCTAssertTrue(selection.isSelected(x: 0, y: 1))
+        XCTAssertFalse(selection.isSelected(x: 2, y: 1))
+        XCTAssertEqual(selection.selectedCount, 3)
+
+        let pixels = [
+            PixelColor(r: 1, g: 0, b: 0),
+            PixelColor(r: 2, g: 0, b: 0),
+            PixelColor(r: 3, g: 0, b: 0),
+            PixelColor(r: 4, g: 0, b: 0)
+        ]
+        let source = try PixelBuffer(width: 2, height: 2, pixels: pixels)
+        XCTAssertEqual(try ImageOperations.flippedHorizontal(source).pixels.map(\.r), [2, 1, 4, 3])
+        XCTAssertEqual(try ImageOperations.flippedVertical(source).pixels.map(\.r), [3, 4, 1, 2])
+        XCTAssertEqual(try ImageOperations.rotated180(source).pixels.map(\.r), [4, 3, 2, 1])
+        XCTAssertEqual(try ImageOperations.rotated90Clockwise(source).pixels.map(\.r), [3, 1, 4, 2])
+
+        let gradient = try PixelBuffer(width: 3, height: 1, pixels: [
+            PixelColor(r: 0, g: 0, b: 0),
+            PixelColor(r: 120, g: 120, b: 120),
+            PixelColor(r: 255, g: 255, b: 255)
+        ])
+        XCTAssertEqual(ImageOperations.inverted(gradient).pixels.map(\.r), [255, 135, 0])
+        XCTAssertEqual(ImageOperations.threshold(gradient, cutoff: 128).pixels.map(\.r), [0, 0, 255])
+        XCTAssertGreaterThan(ImageOperations.brightnessContrast(gradient, brightness: 20, contrast: 0).pixels[1].r, 120)
+        XCTAssertEqual(ImageOperations.levels(gradient, blackPoint: 0, gamma: 1.0, whitePoint: 255).pixels.map(\.r), [0, 120, 255])
+        XCTAssertEqual(try ImageOperations.blur3x3(gradient).pixels.count, 3)
+        XCTAssertEqual(try ImageOperations.sharpen3x3(gradient).pixels.count, 3)
+        XCTAssertEqual(try ImageOperations.edgeDetect3x3(gradient).pixels.count, 3)
+        XCTAssertEqual(try ImageOperations.median3x3(gradient).pixels.count, 3)
+    }
+
+    func testPaintBucketResizeAndUndo() throws {
+        let source = try PixelBuffer(width: 2, height: 2, pixels: [.white, .black, .white, .black])
+        let filled = try ImageOperations.paintBucket(source, startX: 0, startY: 0, replacement: PixelColor(r: 9, g: 9, b: 9))
+        XCTAssertEqual(try filled.pixel(x: 0, y: 0), PixelColor(r: 9, g: 9, b: 9))
+        XCTAssertEqual(try filled.pixel(x: 0, y: 1), PixelColor(r: 9, g: 9, b: 9))
+        XCTAssertEqual(try filled.pixel(x: 1, y: 0), .black)
+
+        let resized = try ImageOperations.resizedNearest(source, width: 4, height: 4)
+        XCTAssertEqual(resized.width, 4)
+        XCTAssertEqual(resized.height, 4)
+        XCTAssertEqual(try resized.pixel(x: 3, y: 0), .black)
+
+        var model = try DocumentModel(width: 2, height: 1, background: .white)
+        try model.apply(name: "one pixel") { current in
+            var output = current
+            try output.setPixel(x: 0, y: 0, color: .black)
+            return output
+        }
+
+        XCTAssertEqual(try model.buffer.pixel(x: 0, y: 0), .black)
+        XCTAssertEqual(model.undo(), "one pixel")
+        XCTAssertEqual(try model.buffer.pixel(x: 0, y: 0), .white)
+        XCTAssertEqual(model.redo(), "one pixel")
+        XCTAssertEqual(try model.buffer.pixel(x: 0, y: 0), .black)
+    }
+}

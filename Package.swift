@@ -29,6 +29,10 @@ let package = Package(
         .executableTarget(
             name: "ClassicPixelCoreTestRunner",
             dependencies: ["ClassicPixelCore"]
+        ),
+        .testTarget(
+            name: "ClassicPixelCoreTests",
+            dependencies: ["ClassicPixelCore"]
         )
     ]
 )

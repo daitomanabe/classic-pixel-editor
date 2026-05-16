@@ -15,10 +15,11 @@ Classic Pixel Editor is a clean-room macOS raster editor. This roadmap keeps the
 - Add practical document status details: modified marker, file path, color mode, and current tool.
 - Add lightweight smoke checks for launch, new document, simple edit, save, and reopen.
 
-## Milestone 2: Real XCTest Migration
+## Milestone 2: XCTest Coverage And Smoke Tests
 
-- Migrate the executable test runner into standard SwiftPM test targets once the supported local and CI toolchains expose the test framework reliably.
+- Keep standard SwiftPM XCTest targets as the primary CI path.
 - Keep deterministic generated-image tests for pixel math, selections, transforms, adjustments, filters, and file round trips.
+- Maintain the executable test runner only as a fallback smoke runner for minimal local toolchains.
 - Add release-guard checks for app identity, bundle identifier, and clean-room docs.
 
 ## Milestone 3: Document-Based Packaging
