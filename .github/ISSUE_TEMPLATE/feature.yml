@@ -1,0 +1,27 @@
+name: Feature
+description: Track a clean-room feature task
+title: "[Feature] "
+labels:
+  - feature
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Describe the user-facing feature without referencing prohibited implementation sources.
+    validations:
+      required: true
+  - type: checkboxes
+    id: cleanroom
+    attributes:
+      label: Clean-room source checklist
+      options:
+        - label: This request can be implemented from SPEC.md, platform documentation, or general image-processing references.
+          required: true
+        - label: This request does not require proprietary source releases, source mirrors, decompiled binaries, source-code commentary, vendor artwork, or copied manual prose.
+          required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Test plan
+      description: List expected unit, smoke, or clean-room guard coverage.
