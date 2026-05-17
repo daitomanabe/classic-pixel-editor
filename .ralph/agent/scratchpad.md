@@ -211,3 +211,45 @@ Cleanroom Guard — 修正済み `scripts/cleanroom_guard.sh .` を実行、`gua
 2. iteration.log 追記
 3. git commit + push
 4. `guard.passed` を emit、Reviewer に handoff
+
+## Iteration 9 — Reviewer (2026-05-17)
+
+### Review verdict: **APPROVED → LOOP_COMPLETE**
+
+### Acceptance criteria (spec) — 全項目満たす
+- [x] `swift build` クリーン (この iteration で再確認 PASS、warning なし)
+- [x] テスト全件 PASS (9/9 runner)、新規テスト 4 件追加
+- [x] テスト A: 多サンプルストロークが 1 回の undo で初期状態に戻る (`testStrokeSessionGroupsMultipleExtendsIntoSingleUndo`)
+- [x] テスト B: `before == after` は history に積まれない (`testEmptyStrokeDoesNotPushHistory`)
+- [x] テスト C: ストローク後の apply で 2 段階 undo (`testStrokeFollowedByApplyProducesTwoUndoSteps`)
+- [x] 追加テスト D: mid-stroke apply の auto-end (`testApplyDuringActiveStrokeAutoEndsStroke`)
+- [x] `CanvasView` の `.continuousDrawing` 経路がストロークセッション (main.swift:345-375)
+- [x] `cleanroom_guard.sh .` exit 0
+- [x] Swift コード/コメントに `Photoshop` / `Adobe` 0 件
+- [x] 既存テスト（filters, transforms, paint bucket, selections, copy/paste, menu undo/redo）回帰なし
+
+### Code quality 観察
+- `DocumentModel.swift` のストロークセッション API は最小・明快。`apply` / `undo` / `redo` に `if isStrokeActive { endStroke() }` を入れた defensive design は spec の "安全側に倒す" 要件と一致
+- `CanvasView` の `beginContinuousStroke` / `extendContinuousStroke` / `endContinuousStroke` は責任が分離されており、`tool.rawValue` をストローク名に使う設計は undo メニュー表示と整合する
+- `Sendable` 制約を壊していない（`DocumentModel: Sendable` を維持）
+- 既存 `apply(name:transform:)` を残しているのでメニュー経由のフィルタは無改修で動く
+
+### ROADMAP 進捗
+- M0: 完了
+- M1: **stroke grouping 完了** ← この cycle で前進。残: keyboard shortcuts, marching ants, cursor preview, status details
+- M2: stroke session に 4 件のテストが入り部分前進、他は次以降
+- M3 / M4 / M5: 未着手
+
+### 完了タスク累計（このループ）: 1 (task-01-stroke-undo-grouping)
+
+### 次 cycle 推奨タスク
+1. M1: Keyboard shortcuts for tool selection（最小、UX 大きな改善）
+2. M1: Selection outlines (marching ants)
+3. M1: Cursor preview for brush/pencil size
+4. M2: Round-trip XCTest for ImageIOBridge
+
+### Action
+1. COMPLETION_REPORT.md 生成（完了）
+2. iteration.log 追記
+3. git commit + push
+4. LOOP_COMPLETE emit
