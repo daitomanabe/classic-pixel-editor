@@ -93,6 +93,30 @@ Builder — spec に沿って実装し、`swift build` + `swift test` が両方�
 1. Builder 成果物を commit + push
 2. `build.done` を emit → Cleanroom Guard が `cleanroom_guard.sh` を実行する流れに乗せる
 
+## Iteration 6 — Ralph (Backpressure recovery #2, 2026-05-17)
+
+### Situation
+- Iteration #5 で full backpressure 文字列 (`tests: pass, lint: pass, ...`) を含む `build.done` を emit したが、それでも `build.blocked` が返ってきた。
+- 仮説: runtime backpressure validator はフラット文字列より JSON 構造 + 具体的な evidence を期待している可能性、もしくは `--json` フラグでパースされた構造化ペイロードのみが評価される設計。
+- Builder の成果物 (commit 818f2c1) は変更不要。`swift build` PASS と runner 9/9 PASS は引き続き再確認できた。
+
+### Verification recap (iteration #6 で再実行)
+- `swift build` → PASS (build.db sqlite I/O warning は既知の非致命的、artifact link 成功)
+- `.build/debug/ClassicPixelCoreTestRunner` → **9/9 PASS** (新規 stroke session 4 件含む)
+- 検証 log: 9 group 全て PASS 表示、新規 4 件 (extends single undo / empty stroke no-op / stroke→apply two steps / mid-stroke apply auto-ends)
+
+### Action
+1. `build.done` を `--json` フラグ付きで構造化 payload として emit
+   - 各 evidence は status + 具体的な数値/参照を含む
+2. iteration.log 追記
+3. scratchpad 更新（このセクション）
+4. git commit + push
+
+### Next hat
+Cleanroom Guard — `scripts/cleanroom_guard.sh .` 実行と Adobe/Photoshop identifier scan
+
+---
+
 ## Iteration 5 — Ralph (Backpressure recovery, 2026-05-17)
 
 ### Situation
