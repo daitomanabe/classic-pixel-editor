@@ -1,3 +1,4 @@
 # Iteration Log
 # Format: [{ISO8601}] iteration #{n} | {Hat名} | {受け取ったイベント} | {状態} | {具体的な内容}
 [2026-05-17T02:14:03Z] iteration #1 | Git Setup | work.start | done | branch=claude/clever-sammet-0e00df, remote=github.com/daitomanabe/classic-pixel-editor, swift 6.2.4, baseline `swift build` PASS (build.db I/O warning is non-fatal), .ralph/specs/ empty → handing off to Planner
+[2026-05-17T02:20:00Z] iteration #2 | Planner | git.ready | done | spec=.ralph/specs/task-01-stroke-undo-grouping.md (M1: pencil/brush/eraser のドラッグストロークを単一 undo command にまとめる)、対象: Sources/ClassicPixelCore/DocumentModel.swift, Sources/ClassicPixelEditorApp/main.swift (CanvasView), Tests/ClassicPixelCoreTests/CoreTests.swift → handing off to Builder
