@@ -75,3 +75,20 @@ Spec: `.ralph/specs/task-01-stroke-undo-grouping.md`
 
 ### Next hat
 Builder — spec に沿って実装し、`swift build` + `swift test` が両方通ったら `build.done` を emit。
+
+## Iteration 4 — Ralph (Recovery, 2026-05-17)
+
+### Situation
+- 前 iteration #3 (Builder) は実装と build/test PASS を達成済み (iteration.log 記載と一致)
+- ただし **commit/push と event 発行が漏れた** ため、recovery として task.resume が回ってきた
+- Working tree に 4 ファイルの未コミット変更があり: DocumentModel.swift, main.swift (App), main.swift (TestRunner), CoreTests.swift
+
+### Verification (今 iteration で再確認)
+- `swift build` → PASS (build.db sqlite I/O warning は既知の非致命的、artifact は link 成功)
+- `.build/debug/ClassicPixelCoreTestRunner` → **9/9 PASS** (新規ストロークセッション 4 件含む)
+- `swift test` (XCTest path) は当環境で XCTest module 未配備のため使用不可。runner で代替実行する Builder 方針を踏襲
+- Cleanroom Guard は次 hat に委譲（このコーディネーターでは走らせない）
+
+### Action
+1. Builder 成果物を commit + push
+2. `build.done` を emit → Cleanroom Guard が `cleanroom_guard.sh` を実行する流れに乗せる

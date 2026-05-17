@@ -8,6 +8,9 @@ public struct DocumentModel: Sendable {
     public var metadata: [String: String]
     public private(set) var history: EditHistory
 
+    private var strokeName: String?
+    private var strokeBefore: PixelBuffer?
+
     public init(title: String = "Untitled", width: Int, height: Int, colorMode: ColorMode = .rgba, background: PixelColor = .white) throws {
         self.title = title
         self.colorMode = colorMode
@@ -24,18 +27,45 @@ public struct DocumentModel: Sendable {
         self.history = EditHistory()
     }
 
+    public var isStrokeActive: Bool { strokeBefore != nil }
+
     public mutating func apply(name: String, transform: (PixelBuffer) throws -> PixelBuffer) throws {
+        if isStrokeActive { endStroke() }
         let before = buffer
         let after = try transform(buffer)
         buffer = after
         history.push(ImageEditCommand(name: name, before: before, after: after))
     }
 
+    public mutating func beginStroke(name: String) {
+        if isStrokeActive { endStroke() }
+        strokeName = name
+        strokeBefore = buffer
+    }
+
+    public mutating func extendStroke(_ transform: (PixelBuffer) throws -> PixelBuffer) throws {
+        guard isStrokeActive else {
+            try apply(name: strokeName ?? "Stroke", transform: transform)
+            return
+        }
+        buffer = try transform(buffer)
+    }
+
+    public mutating func endStroke() {
+        guard let before = strokeBefore, let name = strokeName else { return }
+        let after = buffer
+        strokeBefore = nil
+        strokeName = nil
+        history.push(ImageEditCommand(name: name, before: before, after: after))
+    }
+
     public mutating func undo() -> String? {
-        history.undo(current: &buffer)
+        if isStrokeActive { endStroke() }
+        return history.undo(current: &buffer)
     }
 
     public mutating func redo() -> String? {
-        history.redo(current: &buffer)
+        if isStrokeActive { endStroke() }
+        return history.redo(current: &buffer)
     }
 }

@@ -145,6 +145,98 @@ final class CoreTests: XCTestCase {
         XCTAssertEqual(try embossed.pixel(x: 1, y: 1), PixelColor(r: 128, g: 128, b: 128, a: 42))
     }
 
+    func testStrokeSessionGroupsMultipleExtendsIntoSingleUndo() throws {
+        var model = try DocumentModel(width: 4, height: 4, background: .white)
+        XCTAssertFalse(model.history.canUndo)
+        XCTAssertFalse(model.isStrokeActive)
+
+        model.beginStroke(name: "Pencil")
+        XCTAssertTrue(model.isStrokeActive)
+        for x in 0 ..< 3 {
+            try model.extendStroke { current in
+                var output = current
+                try output.setPixel(x: x, y: 0, color: .black)
+                return output
+            }
+        }
+        model.endStroke()
+        XCTAssertFalse(model.isStrokeActive)
+
+        XCTAssertEqual(try model.buffer.pixel(x: 0, y: 0), .black)
+        XCTAssertEqual(try model.buffer.pixel(x: 1, y: 0), .black)
+        XCTAssertEqual(try model.buffer.pixel(x: 2, y: 0), .black)
+        XCTAssertTrue(model.history.canUndo)
+
+        XCTAssertEqual(model.undo(), "Pencil")
+        XCTAssertEqual(try model.buffer.pixel(x: 0, y: 0), .white)
+        XCTAssertEqual(try model.buffer.pixel(x: 1, y: 0), .white)
+        XCTAssertEqual(try model.buffer.pixel(x: 2, y: 0), .white)
+        XCTAssertFalse(model.history.canUndo)
+
+        XCTAssertEqual(model.redo(), "Pencil")
+        XCTAssertEqual(try model.buffer.pixel(x: 0, y: 0), .black)
+        XCTAssertEqual(try model.buffer.pixel(x: 2, y: 0), .black)
+    }
+
+    func testEmptyStrokeDoesNotPushHistory() throws {
+        var model = try DocumentModel(width: 2, height: 2, background: .white)
+
+        model.beginStroke(name: "Pencil")
+        model.endStroke()
+        XCTAssertFalse(model.history.canUndo)
+
+        model.beginStroke(name: "Brush")
+        try model.extendStroke { $0 }
+        try model.extendStroke { $0 }
+        model.endStroke()
+        XCTAssertFalse(model.history.canUndo)
+    }
+
+    func testStrokeFollowedByApplyProducesTwoUndoSteps() throws {
+        var model = try DocumentModel(width: 2, height: 1, background: .white)
+
+        model.beginStroke(name: "Pencil")
+        try model.extendStroke { current in
+            var output = current
+            try output.setPixel(x: 0, y: 0, color: .black)
+            return output
+        }
+        model.endStroke()
+
+        try model.apply(name: "Invert") { ImageOperations.inverted($0) }
+
+        XCTAssertEqual(try model.buffer.pixel(x: 0, y: 0), .white)
+        XCTAssertEqual(try model.buffer.pixel(x: 1, y: 0), .black)
+
+        XCTAssertEqual(model.undo(), "Invert")
+        XCTAssertEqual(try model.buffer.pixel(x: 0, y: 0), .black)
+        XCTAssertEqual(try model.buffer.pixel(x: 1, y: 0), .white)
+
+        XCTAssertEqual(model.undo(), "Pencil")
+        XCTAssertEqual(try model.buffer.pixel(x: 0, y: 0), .white)
+        XCTAssertEqual(try model.buffer.pixel(x: 1, y: 0), .white)
+
+        XCTAssertFalse(model.history.canUndo)
+    }
+
+    func testApplyDuringActiveStrokeAutoEndsStroke() throws {
+        var model = try DocumentModel(width: 2, height: 1, background: .white)
+
+        model.beginStroke(name: "Pencil")
+        try model.extendStroke { current in
+            var output = current
+            try output.setPixel(x: 0, y: 0, color: .black)
+            return output
+        }
+        // Menu command arrives mid-stroke (defensive auto-end)
+        try model.apply(name: "Invert") { ImageOperations.inverted($0) }
+
+        XCTAssertFalse(model.isStrokeActive)
+        XCTAssertEqual(model.undo(), "Invert")
+        XCTAssertEqual(model.undo(), "Pencil")
+        XCTAssertFalse(model.history.canUndo)
+    }
+
     func testPaintBucketResizeAndUndo() throws {
         let source = try PixelBuffer(width: 2, height: 2, pixels: [.white, .black, .white, .black])
         let filled = try ImageOperations.paintBucket(source, startX: 0, startY: 0, replacement: PixelColor(r: 9, g: 9, b: 9))

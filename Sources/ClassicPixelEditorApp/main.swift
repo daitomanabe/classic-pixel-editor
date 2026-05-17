@@ -342,6 +342,38 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
+    func beginContinuousStroke(at x: Int, y: Int) {
+        guard activeTool.interactionKind == .continuousDrawing else { return }
+        toolController.foreground = PixelColor(nsColor: foregroundWell.color)
+        let tool = activeTool
+        model.beginStroke(name: tool.rawValue)
+        do {
+            try model.extendStroke { try self.toolController.drawPoint(on: $0, x: x, y: y, tool: tool) }
+        } catch {
+            model.endStroke()
+            NSAlert(error: error).runModal()
+        }
+        refresh(cursorX: x, cursorY: y)
+    }
+
+    func extendContinuousStroke(at x: Int, y: Int) {
+        guard activeTool.interactionKind == .continuousDrawing, model.isStrokeActive else { return }
+        let tool = activeTool
+        do {
+            try model.extendStroke { try self.toolController.drawPoint(on: $0, x: x, y: y, tool: tool) }
+        } catch {
+            model.endStroke()
+            NSAlert(error: error).runModal()
+        }
+        refresh(cursorX: x, cursorY: y)
+    }
+
+    func endContinuousStroke(at x: Int?, y: Int?) {
+        guard model.isStrokeActive else { return }
+        model.endStroke()
+        refresh(cursorX: x, cursorY: y)
+    }
+
     func finishSelection(start: NSPoint, end: NSPoint, lassoCanvasPoints: [NSPoint] = []) {
         guard activeTool.interactionKind == .dragSelection else { return }
         let s = canvasView.pixelCoordinate(from: start)
@@ -578,7 +610,9 @@ final class CanvasView: NSView {
         dragPoints = [location]
         guard let controller, let point = pixelCoordinate(from: location) else { return }
         switch controller.activeToolInteractionKind {
-        case .continuousDrawing, .clickEditing, .clickSelection:
+        case .continuousDrawing:
+            controller.beginContinuousStroke(at: point.x, y: point.y)
+        case .clickEditing, .clickSelection:
             controller.draw(at: point.x, y: point.y)
         case .dragSelection:
             controller.refresh(cursorX: point.x, cursorY: point.y)
@@ -590,11 +624,11 @@ final class CanvasView: NSView {
         guard let controller, let point = pixelCoordinate(from: location) else { return }
         switch controller.activeToolInteractionKind {
         case .continuousDrawing:
-            controller.draw(at: point.x, y: point.y)
-        case .dragSelection, .clickEditing, .clickSelection:
-            if controller.activeToolInteractionKind == .dragSelection {
-                dragPoints.append(location)
-            }
+            controller.extendContinuousStroke(at: point.x, y: point.y)
+        case .dragSelection:
+            dragPoints.append(location)
+            controller.refresh(cursorX: point.x, cursorY: point.y)
+        case .clickEditing, .clickSelection:
             controller.refresh(cursorX: point.x, cursorY: point.y)
         }
     }
@@ -603,10 +637,16 @@ final class CanvasView: NSView {
         guard let controller, let start = dragStart else { return }
         let end = convert(event.locationInWindow, from: nil)
         dragPoints.append(end)
-        if controller.activeToolInteractionKind == .dragSelection {
+        let endPoint = pixelCoordinate(from: end)
+        switch controller.activeToolInteractionKind {
+        case .dragSelection:
             controller.finishSelection(start: start, end: end, lassoCanvasPoints: dragPoints)
-        } else if let point = pixelCoordinate(from: end) {
-            controller.refresh(cursorX: point.x, cursorY: point.y)
+        case .continuousDrawing:
+            controller.endContinuousStroke(at: endPoint?.x, y: endPoint?.y)
+        case .clickEditing, .clickSelection:
+            if let endPoint {
+                controller.refresh(cursorX: endPoint.x, cursorY: endPoint.y)
+            }
         }
         dragStart = nil
         dragPoints = []

@@ -116,12 +116,105 @@ func testBucketResizeAndUndo() throws {
     try expect(try model.buffer.pixel(x: 0, y: 0) == .black, "redo restore failed")
 }
 
+func testStrokeSessionGroupsExtendsIntoSingleUndo() throws {
+    var model = try DocumentModel(width: 4, height: 4, background: .white)
+    try expect(!model.history.canUndo, "history started non-empty")
+    try expect(!model.isStrokeActive, "stroke incorrectly active before begin")
+
+    model.beginStroke(name: "Pencil")
+    try expect(model.isStrokeActive, "stroke not active after begin")
+    for x in 0 ..< 3 {
+        try model.extendStroke { current in
+            var output = current
+            try output.setPixel(x: x, y: 0, color: .black)
+            return output
+        }
+    }
+    model.endStroke()
+    try expect(!model.isStrokeActive, "stroke still active after end")
+
+    try expect(try model.buffer.pixel(x: 0, y: 0) == .black, "stroke sample 0 missing")
+    try expect(try model.buffer.pixel(x: 1, y: 0) == .black, "stroke sample 1 missing")
+    try expect(try model.buffer.pixel(x: 2, y: 0) == .black, "stroke sample 2 missing")
+    try expect(model.history.canUndo, "stroke did not push a history entry")
+
+    try expect(model.undo() == "Pencil", "stroke undo did not return name")
+    try expect(try model.buffer.pixel(x: 0, y: 0) == .white, "stroke undo did not restore pixel 0")
+    try expect(try model.buffer.pixel(x: 1, y: 0) == .white, "stroke undo did not restore pixel 1")
+    try expect(try model.buffer.pixel(x: 2, y: 0) == .white, "stroke undo did not restore pixel 2")
+    try expect(!model.history.canUndo, "stroke undo did not consume the only history entry")
+
+    try expect(model.redo() == "Pencil", "stroke redo did not return name")
+    try expect(try model.buffer.pixel(x: 0, y: 0) == .black, "stroke redo did not restore pixel 0")
+    try expect(try model.buffer.pixel(x: 2, y: 0) == .black, "stroke redo did not restore pixel 2")
+}
+
+func testStrokeSessionEmptyStrokeDoesNotPushHistory() throws {
+    var model = try DocumentModel(width: 2, height: 2, background: .white)
+
+    model.beginStroke(name: "Pencil")
+    model.endStroke()
+    try expect(!model.history.canUndo, "empty stroke pushed to history")
+
+    model.beginStroke(name: "Brush")
+    try model.extendStroke { $0 }
+    try model.extendStroke { $0 }
+    model.endStroke()
+    try expect(!model.history.canUndo, "identity-extend stroke pushed to history")
+}
+
+func testStrokeSessionFollowedByApplyProducesTwoUndoSteps() throws {
+    var model = try DocumentModel(width: 2, height: 1, background: .white)
+
+    model.beginStroke(name: "Pencil")
+    try model.extendStroke { current in
+        var output = current
+        try output.setPixel(x: 0, y: 0, color: .black)
+        return output
+    }
+    model.endStroke()
+
+    try model.apply(name: "Invert") { ImageOperations.inverted($0) }
+
+    try expect(try model.buffer.pixel(x: 0, y: 0) == .white, "invert did not flip stroke pixel")
+    try expect(try model.buffer.pixel(x: 1, y: 0) == .black, "invert did not flip background pixel")
+
+    try expect(model.undo() == "Invert", "expected invert on top of undo stack")
+    try expect(try model.buffer.pixel(x: 0, y: 0) == .black, "invert undo did not restore stroke pixel")
+    try expect(try model.buffer.pixel(x: 1, y: 0) == .white, "invert undo did not restore background pixel")
+
+    try expect(model.undo() == "Pencil", "expected stroke beneath invert on undo stack")
+    try expect(try model.buffer.pixel(x: 0, y: 0) == .white, "stroke undo did not restore initial pixel")
+    try expect(!model.history.canUndo, "history not empty after two undos")
+}
+
+func testStrokeSessionApplyDuringActiveStrokeAutoEndsStroke() throws {
+    var model = try DocumentModel(width: 2, height: 1, background: .white)
+
+    model.beginStroke(name: "Pencil")
+    try model.extendStroke { current in
+        var output = current
+        try output.setPixel(x: 0, y: 0, color: .black)
+        return output
+    }
+    try model.apply(name: "Invert") { ImageOperations.inverted($0) }
+
+    try expect(!model.isStrokeActive, "stroke still active after defensive auto-end")
+    try expect(model.undo() == "Invert", "menu command not on top of undo stack")
+    try expect(model.undo() == "Pencil", "auto-ended stroke not beneath menu command")
+    try expect(!model.history.canUndo, "history not empty after two undos")
+}
+
 let tests: [(String, () throws -> Void)] = [
     ("PixelBuffer bounds and rows", testPixelBufferBoundsAndRows),
     ("Color conversion", testColorConversion),
     ("Selection masks", testSelectionMasks),
     ("Flood fill, transforms, adjustments, filters", testFloodFillTransformsAndAdjustments),
-    ("Bucket, resize, undo", testBucketResizeAndUndo)
+    ("Bucket, resize, undo", testBucketResizeAndUndo),
+    ("Stroke session groups extends into single undo", testStrokeSessionGroupsExtendsIntoSingleUndo),
+    ("Stroke session empty stroke does not push history", testStrokeSessionEmptyStrokeDoesNotPushHistory),
+    ("Stroke session followed by apply produces two undo steps", testStrokeSessionFollowedByApplyProducesTwoUndoSteps),
+    ("Stroke session apply during active stroke auto-ends stroke", testStrokeSessionApplyDuringActiveStrokeAutoEndsStroke)
 ]
 
 var failures = 0
