@@ -51,12 +51,14 @@ SPEC.md / ROADMAP.md / CLEANROOM.md / README.md
    [{ISO8601}] iteration #{n} | {Hat名} | {受け取ったイベント} | {状態} | {具体的な変更内容}
    ```
 2. `.ralph/agent/scratchpad.md` を更新（タスクID・受け入れ基準・現在のフェーズを明記）
-3. Git commit & push
+3. **MANDATORY: Git commit & push（毎iteration必ず実行・スキップ厳禁）**
+   現在のブランチ: `claude/clever-sammet-0e00df`
    ```bash
    git add -A
-   git commit -m "[Ralph] {Hat名}: {完了内容}"
+   git commit --allow-empty -m "[Ralph] {Hat名}: {完了内容}"
    git push
    ```
+   `--allow-empty` を必ず付ける。差分がなくてもcommitしてpushする。pushを省略してはならない。
 
 ### エラー発生時
 1. `.ralph/agent/errors.log` にエラー詳細を記録

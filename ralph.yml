@@ -23,6 +23,7 @@ core:
     - "CLEAN-ROOM RULE: 実装はSPEC.md・generic Swift/AppKit/CoreGraphicsドキュメント・独立した画像処理リファレンスからのみ"
     - "毎iteration開始時に受け取ったイベント名を .ralph/agent/iteration.log に記録"
     - "エラーが起きたら .ralph/agent/errors.log にエラー内容を記録"
+    - "MANDATORY: 毎iteration末に必ず `git add -A && git commit && git push` を実行する。scratchpad/iteration.log を更新しているので必ず差分が出る。空commitでも `git commit --allow-empty` で push を絶対に省略しないこと"
 
 memories:
   enabled: true
@@ -60,7 +61,7 @@ hats:
       1. .ralph/agent/iteration.log に記録
          [{ISO8601}] iteration #{n} | Git Setup | work.start | {done/fail} | {ベースラインビルド結果、ブランチ名}
       2. .ralph/agent/scratchpad.md を更新（ブランチ・リモートURL・swift build結果・ROADMAP現在地を記録）
-      3. git add -A && (差分があれば) git commit -m "[Ralph] Git Setup: baseline check" && git push
+      3. git add -A && git commit --allow-empty -m "[Ralph] Git Setup: baseline check" && git push
 
       全て成功 → git.ready / いずれか致命的に失敗 → LOOP_COMPLETE
 
@@ -96,7 +97,7 @@ hats:
          - 今回のタスクID・タスク名
          - 対象ファイル一覧
          - 受け入れ基準（チェックボックス）
-      3. git add -A && git commit -m "[Ralph] Planner: plan task-{n}-{slug}" && git push
+      3. git add -A && git commit --allow-empty -m "[Ralph] Planner: plan task-{n}-{slug}" && git push
 
   builder:
     name: "Builder"
@@ -137,7 +138,7 @@ hats:
          - 実装完了項目（チェック）
          - swift build 結果
          - swift test 結果（件数）
-      3. git add -A && git commit -m "[Ralph] Builder: implement {task slug}" && git push
+      3. git add -A && git commit --allow-empty -m "[Ralph] Builder: implement {task slug}" && git push
 
       エラー発生時（複数回試しても通らない）:
       1. .ralph/agent/errors.log にエラー詳細を記録
@@ -176,7 +177,7 @@ hats:
       2. .ralph/agent/scratchpad.md を更新
          - ガード結果
          - 違反があれば違反箇所のリスト
-      3. git add -A && (差分があれば) git commit -m "[Ralph] Guard: pass" && git push
+      3. git add -A && git commit --allow-empty -m "[Ralph] Guard: pass" && git push
 
       全PASS → guard.passed / 違反あり → review.changes_requested（scratchpadに修正指示を残す）
 
@@ -213,7 +214,7 @@ hats:
          - レビュー結果
          - 完了タスク数（累計）
          - 次に取り組むべきROADMAP項目（次cycle用）
-      3. git add -A && (差分があれば) git commit -m "[Ralph] Reviewer: review" && git push
+      3. git add -A && git commit --allow-empty -m "[Ralph] Reviewer: review" && git push
 
       判定:
       - 受け入れ基準を満たし、ROADMAP前進あり、追加で進めるべき重要タスクが残っている場合
