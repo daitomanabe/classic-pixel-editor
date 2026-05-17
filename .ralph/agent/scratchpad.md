@@ -1,52 +1,44 @@
-# Scratchpad — Classic Pixel Editor / Ralph loop
+# Ralph Scratchpad — Classic Pixel Editor
 
-## プロジェクト状態（初期）
+## Iteration 1 — Git Setup (2026-05-17)
 
-- リポジトリ: photoshop-challenge (clean-room raster editor)
-- ブランチ: claude/clever-sammet-0e00df (git worktree)
-- Swift Package Manager: `ClassicPixelCore` + `ClassicPixelEditorApp` + `ClassicPixelCoreTestRunner`
-- XCTest target: `Tests/ClassicPixelCoreTests`
+### Environment
+- **Branch:** `claude/clever-sammet-0e00df` (tracked to `origin/claude/clever-sammet-0e00df`)
+- **Remote:** `https://github.com/daitomanabe/classic-pixel-editor.git`
+- **GitHub auth:** OK (`daitomanabe`, scopes: gist/read:org/repo/workflow)
+- **Swift toolchain:** 6.2.4 (swiftlang-6.2.4.1.4), target `arm64-apple-macosx26.0`
+- **Ralph:** 2.8.1 at `/Users/daitomacm5/.cargo/bin/ralph`
 
-## 直近の完了タスク（git log より）
+### Baseline build
+- `swift build` → **Build complete!** (17.19s on second run)
+- Note: emits a non-fatal "build.db disk I/O error" warning from sqlite, but build artifacts link cleanly (ClassicPixelEditor, ClassicPixelCoreTestRunner). Likely transient lock contention on `.build/build.db`; safe to proceed. If it recurs and starts blocking, try `rm -f .build/build.db*` or fresh `.build/`.
 
-- Add desaturate and emboss operations (c2e5638)
-- Add lasso selection tool (aa66e5a)
-- Add local app bundle packaging (9305be1)
-- Harden canvas tool interactions (c8c0dbe)
-- Migrate core checks to XCTest (edd6c5b)
+### Project state
+- Existing structure matches PROMPT.md:
+  - `Sources/ClassicPixelCore/` (PixelBuffer, ImageOperations, SelectionMask, EditCommand, DocumentModel, Color, ImageIOBridge, ToolController)
+  - `Sources/ClassicPixelEditorApp/` (AppKit executable)
+  - `Sources/ClassicPixelCoreTestRunner/` (fallback smoke runner)
+  - `Tests/ClassicPixelCoreTests/` (XCTest target)
+  - `scripts/cleanroom_guard.sh`, `scripts/package_app.sh`
+- Docs present: README, SPEC, ROADMAP, CLEANROOM, PROMPT
+- `.ralph/specs/` exists but is empty → Planner needs to create the first task spec
+- Recent commits show M0/M1 progress already: lasso, desaturate/emboss, local app bundle packaging, canvas tool hardening
 
-## 現在の cycle
+### ROADMAP positioning
+- M0 (App Shell) **done**
+- M1 (UI/UX Hardening) **in progress** — recent commits land canvas hardening, lasso selection
+- M2/M3/M4/M5 mostly open
 
-- Cycle status: **未着手**
-- Current task: なし（次のPlannerが選定）
-- Phase: -
+### Next hat (Planner)
+- Pick ONE atomic task from ROADMAP M1 (or earliest sub-item in M2/M3/M4 that is unblocked)
+- Write spec to `.ralph/specs/task-{n}-{slug}.md`
+- Suggested candidates (Planner to decide):
+  - M1: stroke grouping as single undo command (PROMPT references this explicitly)
+  - M1: keyboard shortcuts for tool selection
+  - M1: cursor preview for brush/pencil size
+  - M1: selection outlines (marching ants) for current selection
+  - M2: deterministic XCTest for one image op that lacks coverage
 
-## 次に選ぶべき候補（参考）
-
-ROADMAP 上で未完了かつ価値の高そうな項目:
-
-- M1: stroke grouping を 1 undoable command として扱う
-- M1: keyboard shortcuts、cursor previews、selection outlines の整備
-- M2: pixel math・selections・transforms・adjustments・filters の決定論テスト追加
-- M2: file round-trip テスト（PNG/TIFF）
-- M4: Gaussian blur、unsharp mask、hue/saturation、levels UI、brush opacity
-
-## 受け入れ基準（現タスク）
-
-未設定
-
-## ビルド状態
-
-- swift build: 未測定（Git Setupで確認）
-- swift test: 未測定
-- cleanroom_guard.sh: 未測定
-
-## レビュー指摘事項
-
-なし
-
-## メモ
-
-- CLEAN-ROOM 厳守: `agdm/photoshop-1.0.1`・CHM source・decompiled binaries を絶対参照しない
-- Swift identifier・comment に "Photoshop" / "Adobe" を書かない
-- AppKit部分は `Sources/ClassicPixelEditorApp/`、pure logicは `Sources/ClassicPixelCore/` に分離
+### Clean-room reminders
+- Never read `agdm/photoshop-1.0.1`, CHM source ZIPs, decompiled binaries
+- No `Photoshop`/`Adobe` identifiers in Swift code or comments (docs explaining non-affiliation are OK)
