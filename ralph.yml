@@ -1,0 +1,228 @@
+cli:
+  backend: "claude"
+  prompt_mode: "arg"
+
+event_loop:
+  completion_promise: "LOOP_COMPLETE"
+  max_iterations: 50
+  max_runtime_seconds: 14400
+  idle_timeout_secs: 1800
+  starting_event: "work.start"
+  prompt_file: "PROMPT.md"
+  checkpoint_interval: 1
+
+core:
+  scratchpad: ".ralph/agent/scratchpad.md"
+  specs_dir: ".ralph/specs/"
+  guardrails:
+    - "Fresh context each iteration - scratchpadを必ず読んでから作業開始"
+    - "Don't assume 'not implemented' - search first (rgやfindで既存実装を確認)"
+    - "Backpressure is law - swift build / swift test / cleanroom_guard.sh が通ってからdoneを発行"
+    - "CLEAN-ROOM RULE: agdm/photoshop-1.0.1、CHM source ZIP、source mirrors、decompiled binaries等は絶対に参照しない"
+    - "CLEAN-ROOM RULE: Adobe/Photoshop名、icons、splash screens、artwork、manual prose、UI drawings、trade dressをコピーしない"
+    - "CLEAN-ROOM RULE: 実装はSPEC.md・generic Swift/AppKit/CoreGraphicsドキュメント・独立した画像処理リファレンスからのみ"
+    - "毎iteration開始時に受け取ったイベント名を .ralph/agent/iteration.log に記録"
+    - "エラーが起きたら .ralph/agent/errors.log にエラー内容を記録"
+
+memories:
+  enabled: true
+  inject: auto
+  budget: 2000
+
+tasks:
+  enabled: true
+
+hats:
+  git_setup:
+    name: "Git Setup"
+    description: "Verify Git auth, branch, Swift toolchain, and baseline swift build."
+    triggers:
+      - "work.start"
+    publishes:
+      - "git.ready"
+      - "LOOP_COMPLETE"
+    instructions: |
+      Git/GitHub状態確認。既存リポジトリの想定（worktree内で実行されている）。
+
+      作業開始時:
+      1. .ralph/agent/scratchpad.md を読んで現在の状況を把握
+      2. .ralph/agent/iteration.log を読んで直近の進捗を確認
+
+      実行手順:
+      1. gh auth status (認証確認、失敗→LOOP_COMPLETE)
+      2. git status / git branch --show-current で現在の状態確認
+      3. git remote -v でリモート確認
+      4. README.md / ROADMAP.md / SPEC.md / CLEANROOM.md を読んでプロジェクト全体像を把握
+      5. swift --version でSwiftツールチェイン確認（未インストール→LOOP_COMPLETE）
+      6. swift build を1回実行してベースラインを確認（失敗していたらscratchpadに記録）
+
+      作業完了後:
+      1. .ralph/agent/iteration.log に記録
+         [{ISO8601}] iteration #{n} | Git Setup | work.start | {done/fail} | {ベースラインビルド結果、ブランチ名}
+      2. .ralph/agent/scratchpad.md を更新（ブランチ・リモートURL・swift build結果・ROADMAP現在地を記録）
+      3. git add -A && (差分があれば) git commit -m "[Ralph] Git Setup: baseline check" && git push
+
+      全て成功 → git.ready / いずれか致命的に失敗 → LOOP_COMPLETE
+
+  planner:
+    name: "Planner"
+    description: "Pick one atomic task from ROADMAP and write its spec to .ralph/specs/."
+    triggers:
+      - "git.ready"
+    publishes:
+      - "plan.ready"
+    instructions: |
+      ROADMAP.md と現状からこのiteration cycleで取り組む単一タスクを選ぶ。
+      タスクは原子的（1つの機能 or 1つのバグ修正 or 1つのテスト追加）にすること。
+
+      作業開始時:
+      1. .ralph/agent/scratchpad.md を読んで現在の状況・前回完了タスクを把握
+      2. .ralph/agent/iteration.log を読んで直近の進捗を確認
+
+      実行:
+      1. ROADMAP.md の Milestone 1〜5 から未着手の項目を1つ選ぶ
+         （優先順位の例: M1 UI/UX hardening → M2 test coverage → M4 tools/filters）
+      2. SPEC.md の MVP capabilities と照合し、未実装機能があれば優先
+      3. 既存Sourcesディレクトリを rg / find で確認して重複実装を避ける
+      4. .ralph/specs/ に今回のタスク仕様を1ファイルで書く
+         - ファイル名: task-{連番}-{slug}.md
+         - 内容: 目的・対象ファイル・受け入れ基準・テスト方針・CLEANROOM配慮事項
+      5. タスクが大きすぎる場合はサブタスクに分割し、最も小さい1つだけを今回扱う
+
+      作業完了後:
+      1. .ralph/agent/iteration.log に記録
+         [{ISO8601}] iteration #{n} | Planner | git.ready | done | task-{連番}-{slug} 計画、対象ファイル: {paths}
+      2. .ralph/agent/scratchpad.md を更新
+         - 今回のタスクID・タスク名
+         - 対象ファイル一覧
+         - 受け入れ基準（チェックボックス）
+      3. git add -A && git commit -m "[Ralph] Planner: plan task-{n}-{slug}" && git push
+
+  builder:
+    name: "Builder"
+    description: "Implement the planned task in Swift; gate on swift build and swift test."
+    triggers:
+      - "plan.ready"
+      - "review.changes_requested"
+    publishes:
+      - "build.done"
+    instructions: |
+      .ralph/specs/ の最新タスク仕様に従ってSwift実装を行う。
+      swift build と swift test が両方通ることをbuild.done発行の前提とする。
+
+      作業開始時:
+      1. .ralph/agent/scratchpad.md を読んで現在のタスク・受け入れ基準を把握
+      2. .ralph/agent/iteration.log を読んで直近の進捗を確認
+      3. 受け取ったイベントが review.changes_requested の場合は、scratchpadのレビュー指摘事項を最優先で対応
+
+      実装ルール（CLEAN-ROOM）:
+      - SPEC.md と CLEANROOM.md のルールに必ず従う
+      - agdm/photoshop-1.0.1、CHM source ZIP等は絶対参照しない
+      - 画像処理アルゴリズムは generic な公開リファレンスから独立に実装
+      - 関数・変数名にAdobe/Photoshop固有用語を使わない（中立な名前を使う）
+      - Sources/ClassicPixelCore/ のpure logicと Sources/ClassicPixelEditorApp/ のAppKit部分を適切に分離
+
+      実装フロー:
+      1. .ralph/specs/ の最新タスクを読む
+      2. Sources/ 配下を編集
+      3. Tests/ClassicPixelCoreTests/ に対応するテストを追加（Image操作・selection・filter等は必須）
+      4. swift build で全モジュールがコンパイルできるか確認
+      5. swift test でテストが通ることを確認
+      6. 失敗時は修正を続け、通るまでbuild.doneを発行しない
+
+      作業完了後（swift build / swift test 両方PASS時のみ）:
+      1. .ralph/agent/iteration.log に記録
+         [{ISO8601}] iteration #{n} | Builder | {受け取ったイベント} | done | {変更ファイル・テスト件数・追加機能}
+      2. .ralph/agent/scratchpad.md を更新
+         - 実装完了項目（チェック）
+         - swift build 結果
+         - swift test 結果（件数）
+      3. git add -A && git commit -m "[Ralph] Builder: implement {task slug}" && git push
+
+      エラー発生時（複数回試しても通らない）:
+      1. .ralph/agent/errors.log にエラー詳細を記録
+      2. scratchpadに現状を残してbuild.doneを発行しない（Ralphが次itelationでretry）
+      3. 5 iteration以上同じエラーで詰まったらLOOP_COMPLETEを検討
+
+  guard:
+    name: "Cleanroom Guard"
+    description: "Run cleanroom_guard.sh and scan identifiers for Adobe/Photoshop leaks."
+    triggers:
+      - "build.done"
+    publishes:
+      - "guard.passed"
+      - "review.changes_requested"
+    default_publishes: "guard.passed"
+    instructions: |
+      Cleanroomガードとパッケージング検証。
+      クリーンルームルール違反があった場合は review.changes_requested で差し戻す。
+
+      作業開始時:
+      1. .ralph/agent/scratchpad.md を読んで現在のタスク・Builderの結果を把握
+      2. .ralph/agent/iteration.log を読んで直近の進捗を確認
+
+      実行手順:
+      1. scripts/cleanroom_guard.sh . を実行
+         - 失敗（exit code != 0）→ 違反箇所を特定し scratchpadに記録 → review.changes_requested
+      2. 変更したSwiftファイル内に "Photoshop" / "Adobe" / 旧UIアセット名 がないか rg で確認
+         - 文書（README/SPEC/CLEANROOM）内の "Photoshop" は文脈上必要なのでOK
+         - コード・コメント・identifierには登場してはいけない
+      3. git log -1 -p で直近コミットの diff を見て、コピペっぽい大きなブロックがないか確認
+      4. swift build と swift test を再実行して環境非依存に通ることを確認
+
+      作業完了後:
+      1. .ralph/agent/iteration.log に記録
+         [{ISO8601}] iteration #{n} | Cleanroom Guard | build.done | {done/fail} | {ガード結果・違反内容}
+      2. .ralph/agent/scratchpad.md を更新
+         - ガード結果
+         - 違反があれば違反箇所のリスト
+      3. git add -A && (差分があれば) git commit -m "[Ralph] Guard: pass" && git push
+
+      全PASS → guard.passed / 違反あり → review.changes_requested（scratchpadに修正指示を残す）
+
+  reviewer:
+    name: "Reviewer"
+    description: "Final review against acceptance criteria; emit LOOP_COMPLETE or request changes."
+    triggers:
+      - "guard.passed"
+    publishes:
+      - "review.changes_requested"
+      - "LOOP_COMPLETE"
+    default_publishes: "LOOP_COMPLETE"
+    instructions: |
+      最終レビュー。今回のタスクの受け入れ基準と全体品質を確認。
+      問題なしならLOOP_COMPLETE、修正が必要ならBuilderに差し戻し。
+
+      作業開始時:
+      1. .ralph/agent/scratchpad.md を読んでタスク・受け入れ基準・Builder/Guardの結果を把握
+      2. .ralph/agent/iteration.log を読んで直近の進捗を確認
+
+      レビュー観点:
+      1. scratchpadに記録された受け入れ基準を全て満たすか
+      2. 追加・変更されたSwiftコードのスタイル（命名、責任分離、力技でないこと）
+      3. テストカバレッジ（新機能に対応するテストがあるか）
+      4. ROADMAP.md の対応Milestoneが前進したか
+      5. README.md / docs/ に説明追記が必要なら指摘
+      6. CLEANROOM違反の最終チェック（identifier・comment・アセット）
+      7. ループ全体で複数のタスクが完了している場合、ROADMAPの主要マイルストーンを十分に進めたかを確認
+
+      作業完了後（毎回必須）:
+      1. .ralph/agent/iteration.log に記録
+         [{ISO8601}] iteration #{n} | Reviewer | guard.passed | {done/fail} | {レビュー結果・指摘事項}
+      2. .ralph/agent/scratchpad.md を更新
+         - レビュー結果
+         - 完了タスク数（累計）
+         - 次に取り組むべきROADMAP項目（次cycle用）
+      3. git add -A && (差分があれば) git commit -m "[Ralph] Reviewer: review" && git push
+
+      判定:
+      - 受け入れ基準を満たし、ROADMAP前進あり、追加で進めるべき重要タスクが残っている場合
+        → review.changes_requested を発行せず、scratchpadに「次タスク開始」と記録し、
+           Builderに直接戻すのではなく、build.done済みかつguard.passed済みなのでこのcycleはLOOP_COMPLETE
+        ※ Ralphは1ループ1タスク完遂モデルが安全
+      - 受け入れ基準に未達 or レビュー指摘あり → review.changes_requested（修正指示をscratchpadに明記）
+      - 全てOK → LOOP_COMPLETE発行
+
+      LOOP_COMPLETE発行時の追加処理:
+      4. COMPLETION_REPORT.md を生成（このcycleで完了した内容・変更ファイル・テスト結果・次の推奨タスクを含める）
+      5. 最終 git add -A && git commit -m "[Ralph] Completion report" && git push

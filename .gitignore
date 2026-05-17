@@ -4,3 +4,10 @@ DerivedData/
 dist/
 *.xcuserdata/
 .DS_Store
+
+# Ralph orchestrator runtime state
+.ralph/agent/memories.md
+.ralph/agent/tasks.jsonl
+.ralph/agent/decisions.md
+.ralph/agent/*.cache
+.ralph/diagnostics/
